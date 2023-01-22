@@ -7,5 +7,6 @@
     GoingToWater,
     Eating,
     Drinking,
-    SearchingForMate
+    SearchingForMate,
+    Fornicating
 }

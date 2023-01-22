@@ -4,7 +4,6 @@ using UnityEngine;
 
 public class Environment : MonoBehaviour
 {
-
     const int mapRegionSize = 10;
 
     public int seed;
@@ -38,7 +37,7 @@ public class Environment : MonoBehaviour
     static System.Random prng;
     TerrainGenerator.TerrainData terrainData;
 
-    static Dictionary<Species, Map> speciesMaps;
+    public static Dictionary<Species, Map> speciesMaps;
 
     void Start()
     {
@@ -119,7 +118,7 @@ public class Environment : MonoBehaviour
     {
         Map speciesMap = speciesMaps[self.species];
         List<LivingEntity> visibleEntities = speciesMap.GetEntities(coord, Animal.maxViewDistance);
-        var potentialMates = new List<Animal>();
+        List<Animal> potentialMates = new List<Animal>();
 
         for (int i = 0; i < visibleEntities.Count; i++)
         {

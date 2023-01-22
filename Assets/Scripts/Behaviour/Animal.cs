@@ -3,7 +3,7 @@ using UnityEngine;
 
 public class Animal : LivingEntity
 {
-
+    Environment environment;
     public const int maxViewDistance = 10;
 
     [EnumFlags]
@@ -58,6 +58,7 @@ public class Animal : LivingEntity
 
     public override void Init(Coord coord)
     {
+        environment = FindObjectOfType<Environment>();
         base.Init(coord);
         moveFromCoord = coord;
         genes = Genes.RandomGenes(1);
@@ -113,12 +114,13 @@ public class Animal : LivingEntity
         // Decide next action:
         // Eat if (more hungry than thirsty) or (currently eating and not critically thirsty)
         bool currentlyEating = currentAction == CreatureAction.Eating && foodTarget && hunger > 0;
-        bool urgeToMate = currentAction == CreatureAction.Exploring && reproUrge > .6f && hunger < .3f && thirst < .3f;
+        bool urgeToMate = reproUrge > .1f && hunger < criticalPercent;
         if (urgeToMate)
         {
             FindMate();
+            Debug.Log(this.gameObject.name + " looking for mate");
         }
-        else if (hunger >= thirst || currentlyEating && thirst < criticalPercent || !urgeToMate)
+        else if (hunger >= thirst || currentlyEating && thirst < criticalPercent)
         {
             FindFood();
         }
@@ -149,15 +151,24 @@ public class Animal : LivingEntity
     protected virtual void FindMate()
     {
         List<Animal> mate = Environment.SensePotentialMates(coord, this);
-        if (mate.Count > 0)
+        currentAction = CreatureAction.SearchingForMate;
+
+        if (mate.Count > 0 && this.genes.isMale)
         {
-            currentAction = CreatureAction.SearchingForMate;
             mateTarget = mate[mate.Count - 1];
             CreatePath(mateTarget.coord);
         }
-        else
+        else if(mate.Count > 0 && !this.genes.isMale)
         {
-            currentAction = CreatureAction.Exploring;
+            mateTarget = mate[mate.Count - 1];
+        }
+        else if(!this.genes.isMale)
+        {
+            currentAction = CreatureAction.SearchingForMate;
+        }
+        else if(this.genes.isMale)
+        {
+            currentAction= CreatureAction.Exploring;
         }
     }
     protected virtual void FindWater()
@@ -168,7 +179,6 @@ public class Animal : LivingEntity
             currentAction = CreatureAction.GoingToWater;
             waterTarget = waterTile;
             CreatePath(waterTarget);
-
         }
         else
         {
@@ -214,15 +224,19 @@ public class Animal : LivingEntity
                 }
                 break;
             case CreatureAction.SearchingForMate:
-                if (Coord.AreNeighbours(coord, mateTarget.coord))
+                if (mateTarget != null && Coord.AreNeighbours(coord, mateTarget.coord))
                 {
                     LookAt(mateTarget.coord);
-                    currentAction = CreatureAction.SearchingForMate;
+                    currentAction = CreatureAction.Fornicating;
                 }
-                else
+                else if(mateTarget != null && genes.isMale)
                 {
                     StartMoveToCoord(path[pathIndex]);
                     pathIndex++;
+                }
+                else 
+                {
+                    StartMoveToCoord(Environment.GetNextTileWeighted(coord, moveFromCoord));
                 }
                 break;
         }
@@ -283,12 +297,12 @@ public class Animal : LivingEntity
                     thirst = Mathf.Clamp01(thirst);
                 }
             }
-            else if (currentAction == CreatureAction.SearchingForMate)
+            else if (currentAction == CreatureAction.Fornicating)
             {
                 Mate();
             }
-
         }
+
         else if (this.species == Species.Fox)
         {
             if (currentAction == CreatureAction.Eating)
@@ -296,7 +310,7 @@ public class Animal : LivingEntity
                 if (foodTarget && hunger > 0)
                 {
                     foodTarget.Die(CauseOfDeath.Eaten);
-                    hunger -= .05f;
+                    hunger -= .01f;
                 }
             }
             else if (currentAction == CreatureAction.Drinking)
@@ -307,18 +321,42 @@ public class Animal : LivingEntity
                     thirst = Mathf.Clamp01(thirst);
                 }
             }
-
+            else if (currentAction == CreatureAction.Fornicating)
+            {
+                Mate();
+            }
         }
-
     }
 
     private void Mate()
     {
         if (this.species == Species.Fox)
         {
-
+            if (!this.genes.isMale)
+            {
+                LivingEntity fox = Instantiate(environment.initialPopulations[2].prefab);
+                fox.coord = this.coord;
+                fox.Init(fox.coord);
+                Debug.Log("Fox birth succesfull");
+                Environment.speciesMaps[fox.species].Add(fox, fox.coord);
+            }
+            reproUrge = 0f;
+            currentAction = CreatureAction.Exploring;
         }
-        throw new System.NotImplementedException();
+
+        if (this.species == Species.Rabbit)
+        {
+            if (!this.genes.isMale)
+            {
+                LivingEntity rabbit = Instantiate(environment.initialPopulations[0].prefab);
+                rabbit.coord = this.coord;
+                rabbit.Init(rabbit.coord);
+                Debug.Log("Rabbit birth succesfull");
+                Environment.speciesMaps[rabbit.species].Add(rabbit, rabbit.coord);
+            }
+            reproUrge = 0f;
+            currentAction = CreatureAction.Exploring;
+        }
     }
 
     void AnimateMove()
